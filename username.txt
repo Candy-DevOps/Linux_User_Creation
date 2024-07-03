@@ -1,7 +1,7 @@
-Alfred
-Felix
-Vivienne
-Shine
-Spencer
-Osei
-Tettey
+Alfred;developer
+Felix;engineer
+Vivienne;developer
+Shine;finance
+Spencer;hr
+Osei;marketing
+Tettey;deveoper
