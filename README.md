@@ -1,78 +1,45 @@
 Here is a `README.md` file for automating user and group management with the provided bash script.
 
----
+# Linux User Creation Bash Script
 
-# User Management Script
+## Project Overview
 
-## Overview
-
-This repository contains a Bash script for managing user creation on Linux systems. The script reads a list of usernames and optionally groups from an input file, creates users, assigns them to personal groups, sets passwords, and logs actions.
+This project is a Bash script designed to automate the creation of Linux users and their respective groups. The script reads from an input file containing usernames and their associated groups, ensuring the proper setup and security measures for each user.
 
 ## Features
 
-- Creates users and their personal groups.
-- Sets random passwords for new users.
-- Logs user creation actions to `/var/log/user_management.log`.
-- Stores usernames and passwords securely in `/var/secure/user_passwords.csv`.
+- Verifies the existence of an input file before proceeding.
+- Initializes log and secure directories to keep track of user management actions and passwords.
+- Checks if users and groups already exist before creating them.
+- Generates random passwords for new users and stores them securely.
+- Adds users to specified groups, creating the groups if they do not exist.
+- Logs all actions to a specified log file for auditing purposes.
 
-## Prerequisites
+## Script Usage
 
-- Linux operating system (tested on Ubuntu).
-- Bash shell (`/bin/bash`).
-- OpenSSL for password generation (`openssl`).
-- Root privileges (`sudo`).
+To use the script, provide it with a file containing the user information. The file should have each line formatted as follows:
 
-## Usage
+```
+username;group1,group2,group3
+```
 
-1. **Clone the repository**
+### Example
 
-   ```bash
-   git clone <repository-url>
-   cd <repository-directory>
-   ```
+```
+candy_esinam;admin,developers
+janet_fiadeva;users,qa
+```
 
-2. **Create an input file**
+### Running the Script
 
-   Create a text file (e.g., `user_list.txt`) with each line formatted as `username;group`.
+1. Save the user information in a file, for example, `username.txt`.
+2. Execute the script with the user information file as an argument:
 
-   Example:
-   ```
-   alice;admin
-   bob;users
-   charlie;
-   ```
+```bash
+./user_creation_script.sh username.txt
+```
 
-3. **Run the script**
-
-   Ensure the script is executable:
-   ```bash
-   chmod +x create_users.sh
-   ```
-
-   Execute with sudo (root privileges required):
-   ```bash
-   sudo ./create_users.sh user_list.txt
-   ```
-
-4. **View logs and passwords**
-
-   - **Log file** (`/var/log/user_management.log`):
-     ```bash
-     sudo cat /var/log/user_management.log
-     ```
-
-   - **Passwords file** (`/var/secure/user_passwords.csv`):
-     ```bash
-     sudo cat /var/secure/user_passwords.csv
-     ```
-
-## Notes
-
-- Ensure the input file (`user_list.txt`) is correctly formatted with usernames and groups separated by a semicolon (`;`).
-- Existing users are skipped during execution to prevent duplicates.
-- The script requires root privileges to create users and modify system files.
-
-## Script
+## Script Details
 
 ```bash
 #!/bin/bash
@@ -109,45 +76,77 @@ user_exists() {
     id "$1" &>/dev/null
 }
 
+# Function to check if a group exists
+group_exists() {
+    getent group "$1" > /dev/null 2>&1
+}
+
+# Function to check if a user is in a group
+user_in_group() {
+    id -nG "$1" | grep -qw "$2"
+}
+
 # Read each line from the input file
 while IFS=';' read -r username groups; do
     # Trim whitespace
     username=$(echo "$username" | tr -d '[:space:]')
+    groups=$(echo "$groups" | tr -d '[:space:]')
 
     # Check if the user already exists
     if user_exists "$username"; then
         echo "User $username already exists."
-        continue
+    else
+        # Create user
+        sudo useradd -m "$username"
+
+        # Generate random password
+        password=$(openssl rand -base64 12)
+
+        # Set password for user
+        echo "$username:$password" | sudo chpasswd
+
+        # Log actions
+        echo "User $username created. Password: $password"
+
+        # Store passwords securely
+        echo "$username,$password" | sudo tee -a "$PASSWORD_FILE"
     fi
 
-    # Create user
-    sudo useradd -m "$username"
-
-    # Create personal group (same as username)
-    sudo groupadd "$username"
-
-    # Add user to personal group
-    sudo usermod -aG "$username" "$username"
-
-    # Create home directory
+    # Ensure the user's home directory and personal group exist
     sudo mkdir -p "/home/$username"
     sudo chown "$username:$username" "/home/$username"
 
-    # Generate random password
-    password=$(openssl rand -base64 12)
+    # Split the groups string into an array
+    IFS=',' read -ra group_array <<< "$groups"
 
-    # Set password for user
-    echo "$username:$password" | sudo chpasswd
+    # Check each group
+    for group in "${group_array[@]}"; do
+        if group_exists "$group"; then
+            echo "Group $group exists."
+        else
+            echo "Group $group does not exist. Creating group $group."
+            sudo groupadd "$group"
+        fi
 
-    # Log actions
-    echo "User $username created. Password: $password"
-
-    # Store passwords securely
-    echo "$username,$password" | sudo tee -a "$PASSWORD_FILE"
-
+        if user_in_group "$username" "$group"; then
+            echo "User $username is already in group $group."
+        else
+            echo "Adding user $username to group $group."
+            sudo usermod -aG "$group" "$username"
+        fi
+    done
 done < "$1"
 ```
+
+## Security Considerations
+
+- The password file is stored with restricted permissions (`600`) to ensure it is only accessible by the root user.
+- The log file captures all actions taken by the script, providing a comprehensive audit trail.
+
+---
 
 ## Conclusion
 
 This script automates the process of user and group management, making it easier to handle large numbers of user accounts efficiently and securely. Ensure to follow the instructions carefully to prevent any issues during execution.
+
+---
