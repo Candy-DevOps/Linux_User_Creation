@@ -1,7 +1,9 @@
-Alfred;developer
-Felix;engineer
-Vivienne;developer
-Shine;finance
-Spencer;hr
-Osei;marketing
-Tettey;deveoper
+Alfred
+Felix
+Vivienne
+Shine
+Spencer
+Osei
+Tettey
+candy
+esinam
